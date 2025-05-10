@@ -1,8 +1,69 @@
+#include <stdlib.h>
 #include <raylib.h>
 #include <raymath.h>
 #include <rlgl.h>
 #define RAYGUI_IMPLEMENTATION
 #include <raygui.h>
+
+struct WorldObject {
+    int shape; //0 - square, 1 - circle
+    float size;
+    Color color;
+    Vector2 position;
+};
+
+typedef struct WorldObject WorldObject;
+
+struct Node {
+    struct Node *next;
+    WorldObject obj;
+};
+
+typedef struct Node Node;
+
+Node *head = NULL;
+
+void addObject(WorldObject obj) {
+    if (head == NULL) {
+        head = (Node*)malloc(sizeof(Node));
+        head->obj = obj;
+        head->next = NULL;
+        return;
+    }
+
+    Node *current = head;
+    while (current->next != NULL) {
+        current = current->next;
+    }
+
+    current->next = (Node*)malloc(sizeof(Node));
+    current->next->obj = obj;
+    current->next->next = NULL;
+}
+
+void drawObject(WorldObject obj) {
+    switch (obj.shape) {
+        case 0:
+            DrawRectangleV(obj.position, (Vector2){ obj.size, obj.size }, obj.color);
+            break;
+        case 1:
+            DrawCircleV(obj.position, (obj.size / 2), obj.color);
+            break;
+    }
+}
+
+void drawObjects() {
+    Node *current = head;
+
+    if (current != NULL) {
+        drawObject(current->obj);
+
+        while (current != NULL) {
+            drawObject(current->obj);
+            current = current->next;
+        }
+    }
+}
 
 int main()
 {
@@ -33,6 +94,13 @@ int main()
 
     Rectangle renderRect = { 0.0f, 0.0f, (float)cameraTexture.texture.width, (float)-cameraTexture.texture.height};
 
+    int lastShape = 0;
+    float lastSize = chosenSize;
+    Color lastColor = chosenColor;
+    Vector2 lastPos = (Vector2){ 0 };
+
+    WorldObject lastObject = (WorldObject){ 0 };
+
     while (!WindowShouldClose()) {
         //mouse
         mouse2DPos = GetMousePosition();
@@ -57,7 +125,6 @@ int main()
             camera.target = mouseWorldPos;
 
             float scale = 0.2f * wheel;
-            //camera.zoom = Clamp(expf(logf(camera.zoom)+scale), 0.125f, 64.0f);
             camera.zoom = Clamp(camera.zoom + scale, 0.125f, 64.0f);
         }
 
@@ -76,6 +143,18 @@ int main()
             resultVector = Vector2Add(resultVector, (Vector2){ (float)objectSize / 2, (float)objectSize / 2 });
         }
 
+        //mouse click
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            WorldObject newObject;
+
+            newObject.shape = chosenShape;
+            newObject.size = chosenSize;
+            newObject.color = chosenColor;
+            newObject.position = resultVector;
+
+            addObject(newObject);
+        }
+
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
@@ -90,12 +169,17 @@ int main()
         DrawGrid(100, 50);
         rlPopMatrix();
 
+        //draw the objects
+        drawObjects();
+
+        //draw a shape on mouse pos
+        Color mouseShapeColor = (Color){ chosenColor.r, chosenColor.g, chosenColor.b, 256 / 2 };
         switch (chosenShape) {
             case 0:
-                DrawRectangleRec(exampleObject, chosenColor);
+                DrawRectangleV(resultVector, (Vector2){ chosenSize, chosenSize }, mouseShapeColor);
                 break;
             case 1:
-                DrawCircleV(resultVector, (float)chosenSize / 2, chosenColor);
+                DrawCircleV(resultVector, (float)chosenSize / 2, mouseShapeColor);
                 break;
         }
 
